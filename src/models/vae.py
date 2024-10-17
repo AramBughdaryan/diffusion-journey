@@ -14,7 +14,8 @@ class VAE(torch.nn.Module):
         )
 
         self.mean_predictor = nn.Linear(in_features=latent_dim, out_features=4)
-        self.std_predictor = nn.Linear(in_features=latent_dim, out_features=4)
+        self.log_std_predictor = nn.Linear(in_features=latent_dim, out_features=4)
+
         self.decoder = nn.Sequential(
             nn.Linear(4, 32),
             nn.ReLU(),
@@ -33,7 +34,7 @@ class VAE(torch.nn.Module):
     def encode(self, x):
         encoded_input = self.encoder(x)
         encoded_mean = self.mean_predictor(encoded_input)
-        encoded_log_std = self.std_predictor(encoded_input)
+        encoded_log_std = self.log_std_predictor(encoded_input)
 
         return encoded_mean, encoded_log_std
 
