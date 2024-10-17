@@ -23,9 +23,10 @@ class VAE(torch.nn.Module):
             nn.Linear(64, input_dim),
         )
 
-    def reparametrization(self, mean, var):
-        z = torch.randn_like(var, device=var.device)
-        x = mean + z * var
+    def reparametrization(self, mean, log_var):
+        z = torch.randn_like(log_var, device=log_var.device)
+        std = torch.exp(0.5 * log_var)
+        x = mean + z * std
 
         return x
 
@@ -41,7 +42,7 @@ class VAE(torch.nn.Module):
 
     def forward(self, data):
         mean, logvar = self.encode(data)
-        x = self.reparametrization(mean=mean, var=logvar)
+        x = self.reparametrization(mean=mean, log_var=logvar)
         x_hat = self.decode(x)
 
         return x_hat, mean, logvar
