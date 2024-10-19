@@ -4,11 +4,14 @@
 # Also would be great if we could process raw data into let's say NPZ(np.savez())/zstandard 
 # format and then use it while training
 import torch
+import io 
+import os
+
+import numpy as np
+import zstandard as zstd
 from torch.utils.data import Dataset
 from torchvision import datasets, transforms
-import numpy as np
-import os
-import zstandard as zstd
+
 
 class MNISTDataset(Dataset):
     def __init__(self, data_path: str, train=True, transform=None, use_zstd=False):
@@ -28,12 +31,12 @@ class MNISTDataset(Dataset):
     def _load_data(self):
         """Load the data from NPZ or Zstandard file."""
         if self.use_zstd:
-            with open(self.data_path, 'rb') as f:
+            with open(f"{self.data_path}.zst", 'rb') as f:
                 dctx = zstd.ZstdDecompressor()
                 decompressed = dctx.decompress(f.read())
                 npz_data = np.load(decompressed)
         else:
-            npz_data = np.load(self.data_path)
+            npz_data = np.load(f"{self.data_path}.npz")
         
         if self.train:
             self.images = npz_data['train_images']
@@ -85,17 +88,22 @@ class MNISTDataset(Dataset):
 
         test_images = np.stack([np.array(test_data[i][0].numpy(), dtype=np.uint8).squeeze() * 255 for i in range(len(test_data))])
         test_labels = np.array([test_data[i][1] for i in range(len(test_data))])
-
+            
         if use_zstd:
-            compressed_data = zstd.ZstdCompressor().compress(np.savez_compressed(save_path, 
-                                                                               train_images=train_images, 
-                                                                               train_labels=train_labels, 
-                                                                               test_images=test_images, 
-                                                                               test_labels=test_labels).tobytes())
-            with open(save_path, 'wb') as f:
-                f.write(compressed_data)
+                buffer = io.BytesIO()
+                np.savez(buffer, 
+                        train_images=train_images, 
+                        train_labels=train_labels, 
+                        test_images=test_images, 
+                        test_labels=test_labels)
+                buffer.seek(0)
+
+                compressed_data = zstd.ZstdCompressor().compress(buffer.read())
+
+                with open(f"{save_path}.zst", 'wb') as f:
+                    f.write(compressed_data)
         else:
-            np.savez_compressed(save_path, 
+            np.savez_compressed(f"{save_path}.npz", 
                                 train_images=train_images, 
                                 train_labels=train_labels, 
                                 test_images=test_images, 
