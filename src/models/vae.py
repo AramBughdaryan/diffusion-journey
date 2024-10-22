@@ -10,7 +10,7 @@ class VAE(torch.nn.Module):
             nn.ReLU(),
             nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Linear(32, 4)
+            nn.Linear(32, latent_dim)
         )
 
         self.mean_predictor = nn.Linear(in_features=latent_dim, out_features=4)
@@ -47,3 +47,8 @@ class VAE(torch.nn.Module):
         x_hat = self.decode(x)
 
         return x_hat, mean, logvar
+
+    def generate(self, num_samples):
+        x = torch.randn(num_samples, 4)
+        out = self.decode(x)
+        return out
