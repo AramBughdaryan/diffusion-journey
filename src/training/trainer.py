@@ -7,12 +7,16 @@
 # Must initialize dataloader in init function which takes dataset, batch_size etc.
 # Implement loss function.
 import os
+import logging
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class Trainer:
     def __init__(self, model: torch.nn.Module, dataset: Dataset, batch_size: int, learning_rate: float, loss_fn_name='cross_entropy', save_dir='checkpoints'):
@@ -35,15 +39,33 @@ class Trainer:
         self.dataloader = dataset.get_dataloader(batch_size)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
-        # TODO: Implement loss function
+
+        if not os.path.exists('reconstructed_images'):
+            os.makedirs('reconstructed_images')
+
+        if not os.path.exists('generated_images'):
+            os.makedirs('generated_images')
+
         if loss_fn_name == 'mse':
-            self.loss_fn = nn.MSELoss()
+            self.reconstructino_loss_fn = nn.MSELoss()
+        elif loss_fn_name == 'mae':
+            self.reconstructino_loss_fn = nn.L1Loss()
         elif loss_fn_name == 'cross_entropy':
-            self.loss_fn = nn.CrossEntropyLoss()
+            self.reconstructino_loss_fn = nn.CrossEntropyLoss()
         else:
+
             raise ValueError(f"Unknown loss function: {loss_fn_name}")
 
-    def _run_batch(self, input, target):
+    def _loss_fn(self, x_hat, mean, logvar, x):
+        reconstruction_loss = self.reconstructino_loss_fn(x_hat, x)
+        kl_divergence = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp())
+        
+        # logger.info(f'Reconstruction Loss: {reconstruction_loss.item():.4f}, '
+        #             f'KL Divergence: {kl_divergence.item():.4f}, ')
+
+        return reconstruction_loss + kl_divergence
+
+    def _run_batch(self, input, epoch, target=None):
         """
         Run model on a batch of data, compute loss, and update model weights.
         Args:
@@ -51,18 +73,23 @@ class Trainer:
             target: Corresponding target labels.
         """
         self.optimizer.zero_grad()
-        output = self.model(input)
-        
-        if isinstance(output, tuple):
-            output = output[0]
+        x_hat, mean, logvar = self.model(input)
 
-        loss = self.loss_fn(output, target)
+        loss = self._loss_fn(
+            x_hat=x_hat, mean=mean,
+            logvar=logvar, x=input
+            )
+        if torch.rand(1) > 0.9:
+            img = x_hat[0].detach().cpu().numpy().reshape(28, 28)
+            plt.imsave(f'reconstructed_images/generated_epoch_{epoch}.png', img, cmap='gray')
+
         loss.backward()
         self.optimizer.step()
+
         return loss.item()
+        
 
-
-    def _run_epoch(self):
+    def _run_epoch(self, epoch):
         """
         Run a single epoch through the dataset.
         """
@@ -72,7 +99,7 @@ class Trainer:
         for batch_idx, (input, target) in enumerate(self.dataloader):
             batch_size = input.size(0)
             input_flattened = input.view(batch_size, -1)
-            batch_loss = self._run_batch(input_flattened, target)
+            batch_loss = self._run_batch(input_flattened, epoch)
             total_loss += batch_loss
 
         avg_loss = total_loss / len(self.dataloader)
@@ -101,6 +128,15 @@ class Trainer:
         else:
             print(f"No checkpoint found at {checkpoint_path}")
 
+    def generate_images(self, epoch, num_samples=2):
+        with torch.no_grad():
+            generated_images = self.model.generate(num_samples)
+            generated_images_np = generated_images.cpu().numpy()
+            for i in range(num_samples):
+                img = generated_images_np[i].reshape(28, 28)
+                plt.imsave(f'generated_images/generated_epoch_{epoch}_img_{i}.png', img, cmap='gray')
+
+
     def train(self, epochs):
         """
         Train the model for a specified number of epochs.
@@ -108,6 +144,13 @@ class Trainer:
             epochs: Number of epochs to train the model for.
         """
         for epoch in range(1, epochs + 1):
-            avg_loss = self._run_epoch()
+            avg_loss = self._run_epoch(epoch=epoch)
             print(f'Epoch {epoch}, Loss: {avg_loss}')
-            self._save_snapshot(epoch)
+
+            if epoch % 10 == 0:
+                self._save_snapshot(epoch)
+                self.generate_images(epoch=epoch, num_samples=2)
+                
+                        
+
+
