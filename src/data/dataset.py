@@ -3,10 +3,9 @@
 # image in processed_format(in torch.tensor format and values in [0,1] range)
 # Also would be great if we could process raw data into let's say NPZ(np.savez())/zstandard 
 # format and then use it while training
-import torch
-import io 
-import os
+import io
 
+import torch
 import numpy as np
 import zstandard as zstd
 from torch.utils.data import Dataset
@@ -27,6 +26,7 @@ class MNISTDataset(Dataset):
         self.transform = transform
         self.use_zstd = use_zstd
         self._load_data()
+        self.images = torch.tensor(self.images).to('cuda')
 
     def _load_data(self):
         """Load the data from NPZ or Zstandard file."""
@@ -52,16 +52,11 @@ class MNISTDataset(Dataset):
         """Get item at index idx, returning image as a torch.Tensor and corresponding label."""
         image = self.images[idx]
         label = self.labels[idx]
-
-        image = torch.tensor(image, dtype=torch.float32) / 255.0
-
-        if self.transform:
-            image = self.transform(image)
-
+        image = image.reshape(-1)
         return image, label
     
-    def get_dataloader(self, batch_size: int):
-        return torch.utils.data.DataLoader(self, batch_size=batch_size, shuffle=True)
+    # def get_dataloader(self, batch_size: int):
+    #     return torch.utils.data.DataLoader(self, batch_size=batch_size, shuffle=True)
         
 
     @staticmethod
@@ -83,10 +78,10 @@ class MNISTDataset(Dataset):
         train_data = datasets.MNIST(root=raw_data_path, train=True, download=True, transform=transform)
         test_data = datasets.MNIST(root=raw_data_path, train=False, download=True, transform=transform)
         
-        train_images = np.stack([np.array(train_data[i][0].numpy(), dtype=np.uint8).squeeze() * 255 for i in range(len(train_data))])
+        train_images = np.stack([train_data[i][0].numpy().squeeze() for i in range(len(train_data))])
         train_labels = np.array([train_data[i][1] for i in range(len(train_data))])
 
-        test_images = np.stack([np.array(test_data[i][0].numpy(), dtype=np.uint8).squeeze() * 255 for i in range(len(test_data))])
+        test_images = np.stack([test_data[i][0].numpy().squeeze() for i in range(len(test_data))])
         test_labels = np.array([test_data[i][1] for i in range(len(test_data))])
             
         if use_zstd:

@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -29,14 +30,14 @@ class Trainer:
             loss_fn_name: Loss function to use ('cross_entropy', 'mse').
             save_dir: Directory to save model snapshots.
         """
-        self.model = model
+        self.model = model.to('cuda')
         self.dataset = dataset
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.save_dir = save_dir
         self.loss_fn_name = loss_fn_name
 
-        self.dataloader = dataset.get_dataloader(batch_size)
+        self.dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
 
@@ -60,12 +61,12 @@ class Trainer:
         reconstruction_loss = self.reconstructino_loss_fn(x_hat, x)
         kl_divergence = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp())
         
-        # logger.info(f'Reconstruction Loss: {reconstruction_loss.item():.4f}, '
-        #             f'KL Divergence: {kl_divergence.item():.4f}, ')
+        logger.info(f'Reconstruction Loss: {reconstruction_loss.item():.4f}, '
+                    f'KL Divergence: {kl_divergence.item():.4f}, ')
 
         return reconstruction_loss + kl_divergence
 
-    def _run_batch(self, input, epoch, target=None):
+    def _run_batch(self, input_batch, epoch, target=None):
         """
         Run model on a batch of data, compute loss, and update model weights.
         Args:
@@ -73,15 +74,17 @@ class Trainer:
             target: Corresponding target labels.
         """
         self.optimizer.zero_grad()
-        x_hat, mean, logvar = self.model(input)
+        x_hat, mean, logvar = self.model(input_batch)
 
         loss = self._loss_fn(
             x_hat=x_hat, mean=mean,
-            logvar=logvar, x=input
+            logvar=logvar, x=input_batch
             )
         if torch.rand(1) > 0.9:
             img = x_hat[0].detach().cpu().numpy().reshape(28, 28)
-            plt.imsave(f'reconstructed_images/generated_epoch_{epoch}.png', img, cmap='gray')
+            original_image = input_batch[0].detach().cpu().numpy().reshape(28, 28)
+            plt.imsave(f'reconstructed_images/pred_image_epoch_{epoch}.png', img, cmap='gray')
+            plt.imsave(f'reconstructed_images/original_image_epoch_{epoch}.png', original_image, cmap='gray')
 
         loss.backward()
         self.optimizer.step()
@@ -96,10 +99,10 @@ class Trainer:
         self.model.train()
         total_loss = 0
 
-        for batch_idx, (input, target) in enumerate(self.dataloader):
-            batch_size = input.size(0)
-            input_flattened = input.view(batch_size, -1)
-            batch_loss = self._run_batch(input_flattened, epoch)
+        for batch_idx, (input_batch, target) in enumerate(self.dataloader):
+            batch_size = input_batch.size(0)
+            # input_batch = torch.reshape(input_batch, (batch_size, 1, 28, 28))
+            batch_loss = self._run_batch(input_batch, epoch)
             total_loss += batch_loss
 
         avg_loss = total_loss / len(self.dataloader)
