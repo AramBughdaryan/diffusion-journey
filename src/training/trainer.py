@@ -30,7 +30,7 @@ class Trainer:
             loss_fn_name: Loss function to use ('cross_entropy', 'mse').
             save_dir: Directory to save model snapshots.
         """
-        self.model = model.to('cuda')
+        self.model = model.to('cuda' if torch.cuda.is_available() else 'cpu')
         self.dataset = dataset
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -48,17 +48,17 @@ class Trainer:
             os.makedirs('generated_images')
 
         if loss_fn_name == 'mse':
-            self.reconstructino_loss_fn = nn.MSELoss()
+            self.reconstruction_loss_fn = nn.MSELoss()
         elif loss_fn_name == 'mae':
-            self.reconstructino_loss_fn = nn.L1Loss()
+            self.reconstruction_loss_fn = nn.L1Loss()
         elif loss_fn_name == 'cross_entropy':
-            self.reconstructino_loss_fn = nn.CrossEntropyLoss()
+            self.reconstruction_loss_fn = nn.CrossEntropyLoss()
         else:
 
             raise ValueError(f"Unknown loss function: {loss_fn_name}")
 
     def _loss_fn(self, x_hat, mean, logvar, x):
-        reconstruction_loss = self.reconstructino_loss_fn(x_hat, x)
+        reconstruction_loss = self.reconstruction_loss_fn(x_hat, x)
         kl_divergence = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp())
         
         logger.info(f'Reconstruction Loss: {reconstruction_loss.item():.4f}, '

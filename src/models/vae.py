@@ -121,6 +121,6 @@ class VAE(torch.nn.Module):
         return x_hat, mean, logvar
 
     def generate(self, num_samples):
-        x = torch.randn(num_samples, 4, device='cuda')
+        x = torch.randn(num_samples, 4, device = 'cuda' if torch.cuda.is_available() else 'cpu')
         out = self.decode(x)
         return out
