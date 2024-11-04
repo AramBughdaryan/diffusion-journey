@@ -13,14 +13,14 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class Trainer:
-    def __init__(self, model: torch.nn.Module, dataset: Dataset, batch_size: int, learning_rate: float, loss_fn_name='cross_entropy', save_dir='checkpoints'):
+    def __init__(self, model: torch.nn.Module, dataloader: DataLoader, batch_size: int, learning_rate: float, loss_fn_name='cross_entropy', save_dir='checkpoints'):
         """
         Args:
             model: The PyTorch model to be trained.
@@ -37,7 +37,7 @@ class Trainer:
         self.save_dir = save_dir
         self.loss_fn_name = loss_fn_name
 
-        self.dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
+        self.dataloader = dataloader
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
 
@@ -61,8 +61,8 @@ class Trainer:
         reconstruction_loss = self.reconstruction_loss_fn(x_hat, x)
         kl_divergence = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp())
         
-        logger.info(f'Reconstruction Loss: {reconstruction_loss.item():.4f}, '
-                    f'KL Divergence: {kl_divergence.item():.4f}, ')
+        # logger.info(f'Reconstruction Loss: {reconstruction_loss.item():.4f}, '
+                    # f'KL Divergence: {kl_divergence.item():.4f}, ')
 
         return reconstruction_loss + kl_divergence
 
@@ -74,6 +74,8 @@ class Trainer:
             target: Corresponding target labels.
         """
         self.optimizer.zero_grad()
+        input_batch = input_batch.to('cuda')
+        input_batch = input_batch.view(-1, 28 * 28)
         x_hat, mean, logvar = self.model(input_batch)
 
         loss = self._loss_fn(
@@ -83,8 +85,8 @@ class Trainer:
         if torch.rand(1) > 0.9:
             img = x_hat[0].detach().cpu().numpy().reshape(28, 28)
             original_image = input_batch[0].detach().cpu().numpy().reshape(28, 28)
-            plt.imsave(f'reconstructed_images/pred_image_epoch_{epoch}.png', img, cmap='gray')
-            plt.imsave(f'reconstructed_images/original_image_epoch_{epoch}.png', original_image, cmap='gray')
+            plt.imsave(f'reconstructed_images/pred_image_epoch.png', img, cmap='gray')
+            plt.imsave(f'reconstructed_images/original_image_epoch.png', original_image, cmap='gray')
 
         loss.backward()
         self.optimizer.step()
@@ -98,14 +100,19 @@ class Trainer:
         """
         self.model.train()
         total_loss = 0
+        count = 0
 
         for batch_idx, (input_batch, target) in enumerate(self.dataloader):
-            batch_size = input_batch.size(0)
-            # input_batch = torch.reshape(input_batch, (batch_size, 1, 28, 28))
             batch_loss = self._run_batch(input_batch, epoch)
             total_loss += batch_loss
+            count += 1
+            try:
+                total_loss > 5
+            except:
+                import pdb; pdb.set_trace()
+            
 
-        avg_loss = total_loss / len(self.dataloader)
+        avg_loss = total_loss / count
         return avg_loss
 
     def _save_snapshot(self, epoch):
@@ -137,7 +144,7 @@ class Trainer:
             generated_images_np = generated_images.cpu().numpy()
             for i in range(num_samples):
                 img = generated_images_np[i].reshape(28, 28)
-                plt.imsave(f'generated_images/generated_epoch_{epoch}_img_{i}.png', img, cmap='gray')
+                plt.imsave(f'generated_images/generated_epoch_img_{i}.png', img, cmap='gray')
 
 
     def train(self, epochs):
@@ -153,7 +160,3 @@ class Trainer:
             if epoch % 10 == 0:
                 self._save_snapshot(epoch)
                 self.generate_images(epoch=epoch, num_samples=2)
-                
-                        
-
-
