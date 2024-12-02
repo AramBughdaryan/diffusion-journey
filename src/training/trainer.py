@@ -106,10 +106,6 @@ class Trainer:
             batch_loss = self._run_batch(input_batch, epoch)
             total_loss += batch_loss
             count += 1
-            try:
-                total_loss > 5
-            except:
-                import pdb; pdb.set_trace()
             
 
         avg_loss = total_loss / count
