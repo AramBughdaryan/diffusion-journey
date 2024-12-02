@@ -77,23 +77,25 @@ import torch.nn as nn
 class VAE(torch.nn.Module):
     def __init__(self, input_dim=28*28, latent_dim=256, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.latend_dim = latent_dim
         self.encoder = nn.Sequential(
-            nn.Linear(input_dim, 64),
+            nn.Linear(input_dim, 512),
             nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(32, latent_dim)
+            nn.Linear(256, 128)
         )
 
-        self.mean_predictor = nn.Linear(in_features=latent_dim, out_features=4)
-        self.log_std_predictor = nn.Linear(in_features=latent_dim, out_features=4)
+        self.mean_predictor = nn.Linear(in_features=128, out_features=latent_dim)
+        self.log_std_predictor = nn.Linear(in_features=128, out_features=latent_dim)
 
         self.decoder = nn.Sequential(
-            nn.Linear(4, 32),
+            nn.Linear(latent_dim, 256),
             nn.ReLU(),
-            nn.Linear(32, 64),
+            nn.Linear(256, 512),
             nn.ReLU(),
-            nn.Linear(64, input_dim),
+            nn.Linear(512, input_dim),
+            nn.Sigmoid(),
         )
 
     def reparametrization(self, mean, log_var):
@@ -104,14 +106,14 @@ class VAE(torch.nn.Module):
         return x
 
     def encode(self, x):
-        encoded_input = self.encoder(x)
+        encoded_input = self.encoder(x.view(-1, 28 * 28))
         encoded_mean = self.mean_predictor(encoded_input)
         encoded_log_std = self.log_std_predictor(encoded_input)
 
         return encoded_mean, encoded_log_std
 
-    def decode(self, input):
-        return self.decoder(input)
+    def decode(self, input_batch):
+        return self.decoder(input_batch)
 
     def forward(self, data):
         mean, logvar = self.encode(data)
@@ -121,6 +123,6 @@ class VAE(torch.nn.Module):
         return x_hat, mean, logvar
 
     def generate(self, num_samples):
-        x = torch.randn(num_samples, 4, device='cuda')
+        x = torch.randn(num_samples, 4, device = 'cuda' if torch.cuda.is_available() else 'cpu')
         out = self.decode(x)
         return out

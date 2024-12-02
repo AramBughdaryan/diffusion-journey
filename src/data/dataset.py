@@ -26,7 +26,7 @@ class MNISTDataset(Dataset):
         self.transform = transform
         self.use_zstd = use_zstd
         self._load_data()
-        self.images = torch.tensor(self.images).to('cuda')
+        self.images = torch.tensor(self.images).to('cuda' if torch.cuda.is_available() else 'cpu')
 
     def _load_data(self):
         """Load the data from NPZ or Zstandard file."""
