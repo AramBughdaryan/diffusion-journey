@@ -25,7 +25,7 @@ if __name__ == "__main__":
     model = VAE(input_dim=28 * 28, latent_dim=4)
     trainer = Trainer(model=model, dataloader=train_loader, batch_size=128, learning_rate=0.001, loss_fn_name='cross_entropy')
     # trainer._load_snapshot('checkpoints/model_epoch_100.pth')
-    # model.load_state_dict(
-    #     torch.load('checkpoints/model_epoch_100.pth')
-    #     )
+    model.load_state_dict(
+        torch.load('checkpoints/model_epoch_100.pth')
+        )
     trainer.train(epochs=5000)
