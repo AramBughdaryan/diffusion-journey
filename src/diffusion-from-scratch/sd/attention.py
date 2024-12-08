@@ -3,7 +3,6 @@ from torch import nn
 from torch.nn import functional as F
 import math
 
-
 class SelfAttention(nn.Module):
     def __init__(self, n_heads, d_embed, in_proj_bias=True, out_proj_bias=True):
         super().__init__()
@@ -62,7 +61,6 @@ class SelfAttention(nn.Module):
 
         # (Batch_Size, Seq_Len, Dim) -> (Batch_Size, Seq_Len, Dim)
         output = self.out_proj(output)
-
         # (Batch_Size, Seq_Len, Dim)
         return output
 
@@ -85,7 +83,6 @@ class CrossAttention(nn.Module):
         batch_size, sequence_length, d_embed = input_shape
         # Divide each embedding of Q into multiple heads such that d_heads * n_heads = Dim_Q
         interim_shape = (batch_size, -1, self.n_heads, self.d_head)
-
         # (Batch_Size, Seq_Len_Q, Dim_Q) -> (Batch_Size, Seq_Len_Q, Dim_Q)
         q = self.q_proj(x)
         # (Batch_Size, Seq_Len_KV, Dim_KV) -> (Batch_Size, Seq_Len_KV, Dim_Q)

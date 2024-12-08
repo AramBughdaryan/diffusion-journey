@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from attenetion import SelfAttention
+from attention import SelfAttention
 
 class VAE_AttentionBlock(nn.Module):
     def __init__(self, channels) -> None:
         super().__init__()
-        self.group_norm = nn.GroupNorm(32)
+        self.groupnorm = nn.GroupNorm(32, channels)
         self.attention = SelfAttention(1, channels)
     
     def forward(self, x):
@@ -15,6 +15,8 @@ class VAE_AttentionBlock(nn.Module):
 
         residue = x
 
+        x = self.groupnorm(x)
+        print('line 19', x[0])
         n, c, h, w = x.shape
         # (Batch_size, features, Hight, Width) -> (Batch_size, features, Hight * Width)
         x = x.view(n, c, h * w)
@@ -24,6 +26,7 @@ class VAE_AttentionBlock(nn.Module):
         
         # (Batch_size, Hight * Width, features) -> (Batch_size, Hight * Width, features)
         x = self.attention(x)
+        print('line 29', x[0])
 
         # (Batch_size, Hight * Width, features) -> (Batch_size, features, Hight * Width)
         x = x.transpose(-1, -2)
@@ -39,10 +42,10 @@ class VAE_AttentionBlock(nn.Module):
 class VAE_ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
-        self.group_norm_1 = nn.GroupNorm(32, in_channels)
+        self.groupnorm_1 = nn.GroupNorm(32, in_channels)
         self.conv_1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
 
-        self.group_norm_2 = nn.GroupNorm(32, out_channels)
+        self.groupnorm_2 = nn.GroupNorm(32, out_channels)
         self.conv_2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
 
         if in_channels == out_channels:
@@ -55,7 +58,7 @@ class VAE_ResidualBlock(nn.Module):
         residue = x
 
         # (Batch_size, In_channels, Hight, Width) -> (Batch_size, In_channels, Hight, Width)
-        x = self.group_norm_1(x)
+        x = self.groupnorm_1(x)
 
         x = F.silu(x)
 
@@ -63,19 +66,19 @@ class VAE_ResidualBlock(nn.Module):
         x = self.conv_1(x)
         
         # (Batch_size, Out_channels, Hight, Width)
-        x = self.group_norm_2(x)
+        x = self.groupnorm_2(x)
 
         # (Batch_size, Out_channels, Hight, Width)
         x = F.silu(x)
         # (Batch_size, Out_channels, Hight, Width)
         x = self.conv_2(x)
-
+        print('line 75', (x + self.residual_layer(residue))[0])
         return x + self.residual_layer(residue)
 
 
 class VAE_Decoder(nn.Sequential):
     def __init__(self):
-        super.__init__(
+        super().__init__(
             nn.Conv2d(4, 4, kernel_size=1, padding=0),
             nn.Conv2d(4, 512, kernel_size=3, padding=1),
 
@@ -132,7 +135,8 @@ class VAE_Decoder(nn.Sequential):
 
         x /= 0.18215
 
-        for module in self:
+        for i, module in enumerate(self):
+            print(i, x[0])
             x = module(x)
         
         # (Batch_size, 3, Hight, Width)
