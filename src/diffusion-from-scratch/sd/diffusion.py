@@ -48,6 +48,8 @@ class UNET_ResidualBlock(nn.Module):
         feature = F.silu(feature)
 
         feature = self.conv_feature(feature)
+        
+        time = F.silu(time)
 
         time = self.linear_time(time)
 
@@ -136,7 +138,7 @@ class UNET_AttentionBlock(nn.Module):
         # (Batch_size, features, Height * Width) -> (Batch_size, features, Height, Width)
         x = x.view((n, c, h, w))
 
-        return self.conv_output(x + residue_long)
+        return self.conv_output(x) + residue_long
 
 
 
