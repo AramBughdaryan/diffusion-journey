@@ -72,7 +72,7 @@ class DDPMSampler:
         pred_original_sample = (latents - beta_prod_t ** 0.5 * model_output ) / alpha_prod_t ** 0.5
         
         # Compute the coefficients for pred_original_sample and current sample x_t
-        predicted_original_sample_coeffs = (alpha_prod_t_prev ** 0.5 * current_beta_t * pred_original_sample) / (beta_prod_t)
+        predicted_original_sample_coeffs = (alpha_prod_t_prev ** 0.5 * current_beta_t) / (beta_prod_t)
         current_sample_coeff = current_alpha_t ** 0.5 * beta_prod_t_prev / beta_prod_t
         
         # Compute the predicted previous sample mean
