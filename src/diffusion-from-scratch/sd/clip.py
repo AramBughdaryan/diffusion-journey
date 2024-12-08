@@ -23,18 +23,18 @@ class CLIPEmbedding(nn.Module):
 class CLIPLayer(nn.Module):
     def __init__(self, n_head: int, n_embd: int):
         super().__init__()
-        
-        self.layer_norm_1 = nn.LayerNorm(n_embd)
+
+        self.layernorm_1 = nn.LayerNorm(n_embd)
         self.attention = SelfAttention(n_head, n_embd)
-        self.layer_norm_2 = nn.LayerNorm(n_embd)
+        self.layernorm_2 = nn.LayerNorm(n_embd)
         self.linear_1 = nn.Linear(n_embd, 4 * n_embd)
-        self.linear_1 = nn.Linear(4 * n_embd, n_embd)
+        self.linear_2 = nn.Linear(4 * n_embd, n_embd)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # (Batch_size, Seq_len, Dim)
         residue = x
 
-        x = self.layer_norm_1(x)
+        x = self.layernorm_1(x)
         
         x = self.attention(x, causal_mask=True)
 
@@ -44,7 +44,7 @@ class CLIPLayer(nn.Module):
 
         residue = x
 
-        x = self.layer_norm_2(x)
+        x = self.layernorm_2(x)
 
         x = self.linear_1(x)
 
@@ -61,9 +61,10 @@ class CLIPLayer(nn.Module):
 class CLIP(nn.Module):
 
     def __init__(self):
+        super().__init__()
         self.embedding = CLIPEmbedding(49408, 768, 77)
 
-        self.layers = nn.Module([
+        self.layers = nn.ModuleList([
             CLIPLayer(12, 768) for i in range(12)
         ])
 
