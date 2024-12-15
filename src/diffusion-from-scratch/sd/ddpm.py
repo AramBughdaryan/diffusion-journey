@@ -43,6 +43,8 @@ class DDPMSampler:
         
     def set_strength(self, strength):
         start_step = self.num_inference_steps - int(self.num_inference_steps * strength)
+        self.timesteps = self.timesteps[start_step:]
+        self.start_step = start_step
     
     
     def step(self, timestep: int, latents: torch.Tensor, model_output: torch.Tensor):
